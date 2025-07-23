@@ -1,5 +1,24 @@
-Ray Tracing in one Weekend in CUDA
+Ray Tracing in one Weekend in CUDA - refactored for Ada Lovelace
 ==================================
+
+This is the forked version of CUDA code which is refactored according to the newer GPU architecture of Ada Lovelace. 
+
+By Keonhee Han
+July, 2025
+
+How to use it - guidance
+----------
+
+Profiling
+---------
+To profile the kernels, please type `make profile_basic`. For detail profiling, type `make profile_metrics`
+
+For further CLI command, please refer to the file named `Makefile`.
+
+TODO: Investigate and resolve that VRAM might not go down as it observes by `nvidia-smi`. 
+
+Original forked description
+----------
 
 This is yet another _Ray Tracing in One Weekend_ clone, but this time using CUDA instead of C++.
 
