@@ -1,4 +1,6 @@
+#include "hittable_list.h"
 #include "ray.h"
+#include "sphere.h"
 #include "vec3.h"
 #include <iostream>
 #include <time.h>
@@ -27,12 +29,14 @@ __device__ bool hit_sphere(const vec3 &center, float radius, const ray &r) {
   return (discriminant > 0.0f);
 }
 
+// Rendering the scene color (whether the rays hit the sphere objects or not.
 __device__ vec3 color(const ray &r) {
   if (hit_sphere(vec3(0, 0, -1), 0.5, r))
     return vec3(1, 0, 0);
   vec3 unit_direction = unit_vector(r.direction());
   float t = 0.5f * (unit_direction.y() + 1.0f);
-  return (1.0f - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
+  return (1.0f - t) * vec3(1.0, 1.0, 1.0) +
+         t * vec3(0.5, 0.7, 1.0); // background scene (lerp)
 }
 
 /* Writing CUDA kernel to render the image */
@@ -68,6 +72,20 @@ __global__ void render(vec3 *fb, int max_x, int max_y, vec3 lower_left_corner,
   fb[pixel_index] = color(r);
 }
 
+__global__ void create_world(hittable **d_list, hittable **d_world) {
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    *(d_list) = new sphere(vec3(0, 0, -1), 0.5);
+    *(d_list + 1) = new sphere(vec3(0, -100.5, -1), 100);
+    *d_world = new hittable_list(d_list, 2);
+  }
+}
+
+__global__ void free_world(hittable **d_list, hittable **d_world) {
+  delete *(d_list);
+  delete *(d_list + 1);
+  delete *d_world;
+}
+
 int main() {
   // initializing variables for thread size (tx, ty) and image resolution (nx,
   // ny)
@@ -86,6 +104,15 @@ int main() {
   vec3 *fb;
   checkCudaErrors(cudaMallocManaged((void **)&fb, fb_size));
 
+  // make our world of hittables - chpt 5 Manage Your Memory
+  hittable **d_list;
+  checkCudaErrors(cudaMalloc((void **)&d_list, 2 * sizeof(hittable *)));
+  hittable **d_world;
+  checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(hittable *)));
+  create_world<<<1, 1>>>(d_list, d_world);
+  checkCudaErrors(cudaGetLastError());
+  checkCudaErrors(cudaDeviceSynchronize());
+
   // start timer
   clock_t start, stop;
   start = clock();
@@ -96,6 +123,8 @@ int main() {
   // y-axis go up, the x-axis to the right, and the negative z-axis pointing in
   // the viewing direction. (This is commonly referred to as right-handed
   // coordinates.)
+  // To use `d_world` in the `create_world` kernel, we pass it to our render
+  // kernel and color function, along with the values describing our camera
   render<<<blocks, threads>>>(fb, nx, ny, vec3(-2.0, -1.0, -1.0),
                               vec3(4.0, 0.0, 0.0), vec3(0.0, 2.0, 0.0),
                               vec3(0.0, 0.0, 0.0));
@@ -124,5 +153,14 @@ int main() {
     }
   }
 
+  // CUDA memory clean up
+  checkCudaErrors(cudaDeviceSynchronize());
+  free_world<<<1, 1>>>(d_list, d_world);
+  checkCudaErrors(cudaGetLastError());
+  checkCudaErrors(cudaFree(d_list));
+  checkCudaErrors(cudaFree(d_world));
   checkCudaErrors(cudaFree(fb));
+
+  // useful for cuda-memcheck --leak-check full
+  cudaDeviceReset();
 }
