@@ -21,9 +21,9 @@ class ray
     __device__ ray(const vec3& origin, const vec3& direction) { orig = origin; dir = direction; }
     __device__ vec3 origin() const  { return orig; }
     __device__ vec3 direction() const { return dir; }
-    __device__ vec3 point_at_paramter(float t) const { return orig + t*dir; }
+    __device__ vec3 point_at_parameter(float t) const { return orig + t*dir; }\n
   // NOTE: This type discrepency between float (FP32) and double (FP64) results in Frame Buffer's error in CUDA block allocation
-    // __device__ vec3 point_at_paramter(double t) const { return orig + t*dir; }
+    // __device__ vec3 point_at_parameter(double t) const { return orig + t*dir; }\n
 
     vec3 orig;
     vec3 dir;
